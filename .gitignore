@@ -1,0 +1,8 @@
+nppBackup
+garbage
+.vscode
+*.bat
+
+*.o
+*.exe
+*.lst
