@@ -1,7 +1,7 @@
 /*!
- *  \brief     Interactive console interface between an user and the function for drawing triangles (in assembly).
+ *  \brief     Interactive console interface between an user and the function for drawing triangles (partially in assembly).
  *  \author    Dawid Sygocki
- *  \date      2020-05-15
+ *  \date      2020-06-11
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -170,6 +170,28 @@ void sort_triangle_vertices(VERTEXDATA (*vertex_data)[3])
     }
 }
 
+/*! \brief Draws a horizontal line on the bitmap.
+
+    \param image_data Pointer to the bitmap data.
+    \param info_header Pointer to the BITMAPINFOHEADER describing the bitmap.
+    \param left_x Horizontal position of the left side of the line.
+    \param left_r Proportion of red in the color of the left side of the line.
+    \param left_g Proportion of green in the color of the left side of the line.
+    \param left_b Proportion of blue in the color of the left side of the line.
+    \param right_x Horizontal position of the right side of the line.
+    \param right_r Proportion of red in the color of the right side of the line.
+    \param right_g Proportion of green in the color of the right side of the line.
+    \param right_b Proportion of blue in the color of the right side of the line.
+
+    \warning It is crucial that \a left_x <= \a right_x. Also, all all double parameters should
+        contain non-negative integer numbers, especially the color values should be in range (0.0-255.0).
+
+    \return Zero on success, -1 on error.
+ */
+extern LONG draw_horizontal_line(BYTE *image_data, BITMAPINFOHEADER *info_header,
+    double left_x, double left_r, double left_g, double left_b,
+    double right_x, double right_r, double right_g, double right_b);
+
 /*! \brief Draws a triangle on the bitmap.
 
     \param image_data Pointer to the bitmap data.
@@ -240,7 +262,10 @@ LONG draw_triangle(BYTE *image_data, BITMAPINFOHEADER *info_header, VERTEXDATA (
         if (left.posX > right.posX) {
             swap_vertices(&left, &right);
         }
-        struct COLORSTEP {
+        draw_horizontal_line(image_data, info_header,
+            (double)left.posX, (double)left.colR, (double)left.colG, (double)left.colB,
+            (double)right.posX, (double)right.colR, (double)right.colG, (double)right.colB);
+        /*struct COLORSTEP {
             float r, g, b;
         } line_color_step = {};
         if (left.posX != right.posX) {
@@ -261,7 +286,7 @@ LONG draw_triangle(BYTE *image_data, BITMAPINFOHEADER *info_header, VERTEXDATA (
             pixel_address[0] = left.colB + (j - left.posX) * line_color_step.b;
             pixel_address[1] = left.colG + (j - left.posX) * line_color_step.g;
             pixel_address[2] = left.colR + (j - left.posX) * line_color_step.r;
-        }
+        }*/
     }
     return 0;
 }

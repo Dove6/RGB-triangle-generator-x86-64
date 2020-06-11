@@ -4,5 +4,6 @@ garbage
 *.bat
 
 *.o
+rgb_triangle
 *.exe
 *.lst
