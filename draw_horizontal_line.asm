@@ -5,6 +5,18 @@
 section .text
     global draw_horizontal_line
 
+%macro clamp_0_255 2
+    ; parameters:
+    ;  %1 source and destination register (to be clamped)
+    ;  %2 temporary helper register
+    mov %2, 255
+    cmp %1, %2
+    cmovg %1, %2  ; replace %1 with 255 if %1 > 255
+    xor %2, %2
+    test %1, %1
+    cmovs %1, %2  ; replace %1 with 0 if %1 < 0
+%endmacro
+
 draw_horizontal_line:
     ; function arguments
     ;  [rdi] BYTE *image_data
@@ -155,29 +167,14 @@ horizontal_loop:
     movq r9, xmm5
     mov rax, r9
     shr rax, 32
-    mov r8d, 255    ;
-    cmp eax, r8d    ;
-    cmovg eax, r8d  ;
-    xor r8d, r8d    ;
-    test eax, eax   ;
-    cmovs eax, r8d  ; clamp eax to <0; 255>
+    clamp_0_255 eax, r8d
     mov [rdi], al  ; store blue
     mov eax, r9d
-    mov r8d, 255    ;
-    cmp eax, r8d    ;
-    cmovg eax, r8d  ;
-    xor r8d, r8d    ;
-    test eax, eax   ;
-    cmovs eax, r8d  ; clamp eax to <0; 255>
+    clamp_0_255 eax, r8d
     mov [rdi+1], al  ; store green
     movq rax, xmm4
     shr rax, 32
-    mov r8d, 255    ;
-    cmp eax, r8d    ;
-    cmovg eax, r8d  ;
-    xor r8d, r8d    ;
-    test eax, eax   ;
-    cmovs eax, r8d  ; clamp eax to <0; 255>
+    clamp_0_255 eax, r8d
     mov [rdi+2], al  ; store red
 
     ; perform a linear interpolation step
