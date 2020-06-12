@@ -1,7 +1,7 @@
 /*!
  *  \brief     Interactive console interface between an user and the function for drawing triangles (partially in assembly).
  *  \author    Dawid Sygocki
- *  \date      2020-06-11
+ *  \date      2020-06-12
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -184,13 +184,12 @@ void sort_triangle_vertices(VERTEXDATA (*vertex_data)[3])
     \param right_g Proportion of green in the color of the right side of the line.
     \param right_b Proportion of blue in the color of the right side of the line.
 
-    \warning It is crucial that \a left_x <= \a right_x. Also, all all double parameters should
+    \warning It is crucial that \a left_x <= \a right_x. All double-precision parameters should
         contain non-negative integer numbers, especially the color values should be in range (0.0-255.0).
-        Both pointers must be valid.
-
-    \return Zero on success, -1 on error.
+        Both pointers must be valid. As this function is implemented in assembly and only intended
+        for internal use in draw_triangle(), it performs no input correctness checks.
  */
-extern LONG draw_horizontal_line(BYTE *image_data, BITMAPINFOHEADER *info_header, DWORD line_y,
+extern void draw_horizontal_line(BYTE *image_data, BITMAPINFOHEADER *info_header, DWORD line_y,
     double left_x, double left_r, double left_g, double left_b,
     double right_x, double right_r, double right_g, double right_b);
 
@@ -199,8 +198,6 @@ extern LONG draw_horizontal_line(BYTE *image_data, BITMAPINFOHEADER *info_header
     \param image_data Pointer to the bitmap data.
     \param info_header Pointer to the BITMAPINFOHEADER describing the bitmap.
     \param vertex_data Pointer to the sorted array of three VERTEXDATA structures describing a triangle.
-        The array has to be sorted by vertical position in ascending order.
-    \see sort_triangle_vertices
 
     \return Zero on success, -1 if any argument is a null pointer.
  */
@@ -209,6 +206,8 @@ LONG draw_triangle(BYTE *image_data, BITMAPINFOHEADER *info_header, VERTEXDATA (
     if (image_data == NULL || info_header == NULL || vertices == NULL) {
         return -1;
     }
+
+    sort_triangle_vertices(vertices);
     
     struct VERTEXSTEP {
         float x, r, g, b;
@@ -267,28 +266,6 @@ LONG draw_triangle(BYTE *image_data, BITMAPINFOHEADER *info_header, VERTEXDATA (
         draw_horizontal_line(image_data, info_header, (DWORD)i,
             (double)left.posX, (double)left.colR, (double)left.colG, (double)left.colB,
             (double)right.posX, (double)right.colR, (double)right.colG, (double)right.colB);
-        /*struct COLORSTEP {
-            float r, g, b;
-        } line_color_step = {};
-        if (left.posX != right.posX) {
-            float difference = left.posX - right.posX;
-            line_color_step.r = ((SHORT)left.colR - right.colR) / difference;
-            line_color_step.g = ((SHORT)left.colG - right.colG) / difference;
-            line_color_step.b = ((SHORT)left.colB - right.colB) / difference;
-        }
-        LONG min_x = left.posX, max_x = right.posX;
-        if (min_x < 0) {
-            min_x = 0;
-        }
-        if (max_x >= abs(info_header->biWidth)) {
-            max_x = abs(info_header->biWidth) - 1;
-        }
-        for (LONG j = min_x; j <= max_x; j++) {
-            BYTE *pixel_address = image_data + i * stride + j * 3;
-            pixel_address[0] = left.colB + (j - left.posX) * line_color_step.b;
-            pixel_address[1] = left.colG + (j - left.posX) * line_color_step.g;
-            pixel_address[2] = left.colR + (j - left.posX) * line_color_step.r;
-        }*/
     }
     return 0;
 }
@@ -473,7 +450,6 @@ int main(int argc, char **argv)
                 }
             }
             if (status_ok) {
-                sort_triangle_vertices(&vertex_data);
                 if (draw_triangle(image_data, &info_header, &vertex_data) != 0) {
                     puts("Error drawing triangle!");
                 }

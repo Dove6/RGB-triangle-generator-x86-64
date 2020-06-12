@@ -34,13 +34,6 @@ draw_horizontal_line:
     ; function prologue
     sub rsp, 8  ; align the stack
 
-    ; check if image_data or info_header equal NULL
-    mov rax, -1
-    test rdi, rdi
-    jz draw_end
-    test rsi, rsi
-    jz draw_end
-
     ; move left_x and right_x to general purpose registers
     mov r11, rdx  ; line_y
     cvtpd2dq xmm8, xmm0  ; left_x
@@ -48,10 +41,6 @@ draw_horizontal_line:
     cvtpd2dq xmm8, xmm4  ; right_x
     movd edx, xmm8
 
-    ; check if left_x and right_x are in right order
-    mov rax, -2
-    cmp ecx, edx
-    jg draw_end
     ; if right_x < 0, skip drawing
     xor rax, rax
     cmp edx, eax
@@ -135,6 +124,9 @@ draw_horizontal_line:
     sub r8d, 1
     cmp edx, r8d
     cmovg edx, r8d  ; edx = min(width - 1, right_x)
+    ; if left_x > right_x, skip drawing
+    cmp ecx, edx
+    jg draw_end
     ; calculate stride
     mov r8d, r9d  ;
     shl r9d, 1    ;
@@ -179,8 +171,6 @@ horizontal_loop:
     ;  [xmm1] current_b, current_g
     ;  [xmm2] step_r, step_x
     ;  [xmm3] step_b, step_g
-    cmp ecx, edx
-    jg horizontal_loop_end
 
     ; fetch current color values
     cvtpd2dq xmm4, xmm0
@@ -204,12 +194,11 @@ horizontal_loop:
 
     add rdi, 3  ; increment memory destination pointer
     add ecx, 1
-    jmp horizontal_loop
-
-horizontal_loop_end:
-    xor rax, rax
+    cmp ecx, edx
+    jle horizontal_loop
 
 draw_end:
+    xor rax, rax
     ; function epilogue
     add rsp, 8  ; undo stack alignment
     ret
