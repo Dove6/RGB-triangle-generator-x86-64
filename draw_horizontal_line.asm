@@ -48,8 +48,8 @@ draw_horizontal_line:
     movsd xmm6, xmm0
     cmpeqpd xmm6, xmm2
     pmovsxdq xmm6, xmm6
-    movdqa xmm7, xmm6
-    pandn xmm7, xmm7
+    pcmpeqd xmm7, xmm7
+    pxor xmm7, xmm6
     ;  [xmm6] left_x == right_x, left_x == right_x
     ;  [xmm7] left_x != right_x, left_x != right_x
     movsd xmm2, xmm4
@@ -73,7 +73,7 @@ draw_horizontal_line:
     ;  [xmm5] left_b - right_b, left_g - right_g
     divpd xmm4, xmm2
     divpd xmm5, xmm2
-    ; if left_x == right
+    ; if left_x == right_x
     ;  [xmm4] 0.0, 0.0
     ;  [xmm5] 0.0, 0.0
     ; else (left_x != right_x)
@@ -91,11 +91,11 @@ draw_horizontal_line:
 
     ; prepare general purpose registers for looping
     xor r8d, r8d
-    mov r10d, r9d
-    sub r10d, ecx
+    mov r9d, r8d
+    sub r9d, ecx
     cmovg ecx, r8d  ; ecx = max(0, left_x)
-    cmovl r10d, r8d
-    movd xmm6, r10d  ; send 0 - left_x to vector registers
+    cmovl r9d, r8d
+    movd xmm6, r9d  ; send 0 - left_x to vector registers
     mov r8d, [rsi+0x4]  ; info_header->biWidth
     mov r9d, r8d  ;
     sar r9d, 31   ;
@@ -103,12 +103,12 @@ draw_horizontal_line:
     sub r8d, r9d  ; get absolute value of width
     mov r9d, r8d
     sub r8d, 1
-    cmp r8d, edx
+    cmp edx, r8d
     cmovg edx, r8d  ; edx = min(width - 1, right_x)
     ; calculate stride
     mov r8d, r9d  ;
     shl r9d, 1    ;
-    add r9d, r8d  ; multiply eax by 3
+    add r9d, r8d  ; multiply r9d by 3
     add r9d, 3
     and r9d, 0xfffffffc  ; discard 3 least-significant bits
 
@@ -141,7 +141,7 @@ draw_horizontal_line:
     ;  [rdx] loop counter limit
 horizontal_loop:
     cmp ecx, edx
-    jg horizontal_loop
+    jg horizontal_loop_end
 
     ; fetch current color values
     cvtpd2dq xmm6, xmm2
@@ -179,6 +179,9 @@ horizontal_loop:
     addpd xmm3, xmm5
 
     add rdi, 3  ; increment memory destination pointer
+
+    add ecx, 1
+    jmp horizontal_loop
 
 horizontal_loop_end:
     xor rax, rax
