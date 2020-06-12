@@ -1,3 +1,7 @@
+; description:   Contains the function for drawing interpolated horizontal lines on R8G8B8 bitmap.
+; author:        Dawid Sygocki
+; last modified: 2020-06-12
+
 section .text
     global draw_horizontal_line
 
@@ -15,7 +19,8 @@ draw_horizontal_line:
     ;  [xmm6] double right_g
     ;  [xmm7] double right_b
 
-    sub rsp, 8
+    ; function prologue
+    sub rsp, 8  ; align the stack
 
     ; move left_x and right_x to general purpose registers
     mov r11, rdx  ; line_y
@@ -34,7 +39,7 @@ draw_horizontal_line:
     movapd xmm3, xmm6
     movapd xmm4, xmm0
     movapd xmm5, xmm1
-    ; vector registers layout
+    ; vector registers layout (high double, low double)
     ;  [xmm0] left_r, left_x
     ;  [xmm1] left_b, left_g
     ;  [xmm2] right_r, right_x
@@ -62,8 +67,8 @@ draw_horizontal_line:
     cvtdq2pd xmm3, xmm3
     addpd xmm2, xmm3
     ; if left_x == right_x
-    ;  [xmm2] -1.0, -1.0
-    ;  [xmm3] -1.0, -1.0
+    ;  [xmm2] -1.0, -1.0  }
+    ;  [xmm3] -1.0, -1.0  } to avoid dividing by zero
     ;  [xmm4] 0.0, 0.0
     ;  [xmm5] 0.0, 0.0
     ; else (left_x != right_x)
@@ -73,21 +78,13 @@ draw_horizontal_line:
     ;  [xmm5] left_b - right_b, left_g - right_g
     divpd xmm4, xmm2
     divpd xmm5, xmm2
-    ; if left_x == right_x
-    ;  [xmm4] 0.0, 0.0
-    ;  [xmm5] 0.0, 0.0
-    ; else (left_x != right_x)
     ;  [xmm4] step_r, step_x
     ;  [xmm5] step_b, step_g
-    movapd xmm2, xmm0
-    movapd xmm3, xmm1
-    ; final pre-loop vector registers layout
-    ;  [xmm0] left_r, left_x
-    ;  [xmm1] left_b, left_g
-    ;  [xmm2] current_r, current_x
-    ;  [xmm3] current_b, current_g
-    ;  [xmm4] step_r, step_x
-    ;  [xmm5] step_b, step_g
+    ; (zeroed if left_x == right_x)
+    movapd xmm2, xmm4
+    movapd xmm3, xmm5
+    ;  [xmm2] step_r, step_x
+    ;  [xmm3] step_b, step_g
 
     ; prepare general purpose registers for looping
     xor r8d, r8d
@@ -95,7 +92,7 @@ draw_horizontal_line:
     sub r9d, ecx
     cmovg ecx, r8d  ; ecx = max(0, left_x)
     cmovl r9d, r8d
-    movd xmm6, r9d  ; send 0 - left_x to vector registers
+    movd xmm4, r9d  ; send max(0, 0 - left_x) to a vector register
     mov r8d, [rsi+0x4]  ; info_header->biWidth
     mov r9d, r8d  ;
     sar r9d, 31   ;
@@ -112,41 +109,50 @@ draw_horizontal_line:
     add r9d, 3
     and r9d, 0xfffffffc  ; discard 3 least-significant bits
 
-    ; offset initial current_x, current_r, current_g, current_b
-    cvtdq2pd xmm6, xmm6
-    unpcklpd xmm6, xmm6
-    movapd xmm7, xmm6
-    mulpd xmm6, xmm4
-    mulpd xmm7, xmm5
-    addpd xmm2, xmm6
-    addpd xmm3, xmm7
+    ; calculate initial value of current_x, current_r, current_g, current_b
+    ;  by adding appropriate step values multiplied by max(0, 0 - left_x)
+    ;  to left_x, left_r, left_g, left_b
+    cvtdq2pd xmm4, xmm4
+    unpcklpd xmm4, xmm4
+    movapd xmm5, xmm4
+    mulpd xmm4, xmm2
+    mulpd xmm5, xmm3
+    addpd xmm0, xmm4
+    addpd xmm1, xmm5
+    ;  [xmm0] current_r, current_x
+    ;  [xmm1] current_b, current_g
 
     ; calculate memory address
     mov eax, r9d  ; stride
-    mov r9d, edx  ; min(width - 1, right_x)
-    mul r11d  ; line_y
+    mov r9d, edx  ; move min(width - 1, right_x), as edx content is destroyed after multiplication
+    mul r11d  ; edx:eax <- stride * line_y
     shl rdx, 32
     or rax, rdx
     mov edx, ecx  ;
     shl rdx, 1    ;
-    add rdx, rcx  ; multiply left_x by 3
+    add rdx, rcx  ; multiply left_x by 3 (bytes per pixel)
     add rax, rdx
     add rdi, rax
 
     mov edx, r9d
+horizontal_loop:
     ; general purpose registers layout
     ;  [rdi] current image data pointer
     ;  [rsi] info_header
     ;  [rcx] loop counter
     ;  [rdx] loop counter limit
-horizontal_loop:
+    ; vector registers layout
+    ;  [xmm0] current_r, current_x
+    ;  [xmm1] current_b, current_g
+    ;  [xmm2] step_r, step_x
+    ;  [xmm3] step_b, step_g
     cmp ecx, edx
     jg horizontal_loop_end
 
     ; fetch current color values
-    cvtpd2dq xmm6, xmm2
-    cvtpd2dq xmm7, xmm3
-    movq r9, xmm7
+    cvtpd2dq xmm4, xmm0
+    cvtpd2dq xmm5, xmm1
+    movq r9, xmm5
     mov rax, r9
     shr rax, 32
     mov r8d, 255    ;
@@ -164,7 +170,7 @@ horizontal_loop:
     test eax, eax   ;
     cmovs eax, r8d  ; clamp eax to <0; 255>
     mov [rdi+1], al  ; store green
-    movq rax, xmm6
+    movq rax, xmm4
     shr rax, 32
     mov r8d, 255    ;
     cmp eax, r8d    ;
@@ -174,12 +180,11 @@ horizontal_loop:
     cmovs eax, r8d  ; clamp eax to <0; 255>
     mov [rdi+2], al  ; store red
 
-    ; perform a linear step
-    addpd xmm2, xmm4
-    addpd xmm3, xmm5
+    ; perform a linear interpolation step
+    addpd xmm0, xmm2
+    addpd xmm1, xmm3
 
     add rdi, 3  ; increment memory destination pointer
-
     add ecx, 1
     jmp horizontal_loop
 
@@ -187,5 +192,6 @@ horizontal_loop_end:
     xor rax, rax
 
 draw_end:
-    add rsp, 8
+    ; function epilogue
+    add rsp, 8  ; undo stack alignment
     ret
