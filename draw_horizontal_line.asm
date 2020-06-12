@@ -34,12 +34,37 @@ draw_horizontal_line:
     ; function prologue
     sub rsp, 8  ; align the stack
 
+    ; check if image_data or info_header equal NULL
+    mov rax, -1
+    test rdi, rdi
+    jz draw_end
+    test rsi, rsi
+    jz draw_end
+
     ; move left_x and right_x to general purpose registers
     mov r11, rdx  ; line_y
-    cvtpd2dq xmm8, xmm0
+    cvtpd2dq xmm8, xmm0  ; left_x
     movd ecx, xmm8
-    cvtpd2dq xmm8, xmm4
+    cvtpd2dq xmm8, xmm4  ; right_x
     movd edx, xmm8
+
+    ; check if left_x and right_x are in right order
+    mov rax, -2
+    cmp ecx, edx
+    jg draw_end
+    ; if right_x < 0, skip drawing
+    xor rax, rax
+    cmp edx, eax
+    jl draw_end
+    ; if left_x >= image width, skip drawing
+    mov r10d, [rsi+0x4]  ; info_header->biWidth
+    mov r8d, r10d  ;
+    sar r8d, 31    ;
+    xor r10d, r8d  ;
+    sub r10d, r8d  ; get absolute value of width
+    cmp r10d, ecx
+    jl draw_end
+    ;  [r10d] abs(width)
 
     ; prepare vector registers for looping
     unpcklpd xmm0, xmm1
@@ -105,12 +130,8 @@ draw_horizontal_line:
     cmovg ecx, r8d  ; ecx = max(0, left_x)
     cmovl r9d, r8d
     movd xmm4, r9d  ; send max(0, 0 - left_x) to a vector register
-    mov r8d, [rsi+0x4]  ; info_header->biWidth
-    mov r9d, r8d  ;
-    sar r9d, 31   ;
-    xor r8d, r9d  ;
-    sub r8d, r9d  ; get absolute value of width
-    mov r9d, r8d
+    mov r9d, r10d  ; abs(width)
+    mov r8d, r9d
     sub r8d, 1
     cmp edx, r8d
     cmovg edx, r8d  ; edx = min(width - 1, right_x)

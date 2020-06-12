@@ -186,6 +186,7 @@ void sort_triangle_vertices(VERTEXDATA (*vertex_data)[3])
 
     \warning It is crucial that \a left_x <= \a right_x. Also, all all double parameters should
         contain non-negative integer numbers, especially the color values should be in range (0.0-255.0).
+        Both pointers must be valid.
 
     \return Zero on success, -1 on error.
  */
