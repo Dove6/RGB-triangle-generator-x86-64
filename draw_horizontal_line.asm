@@ -58,7 +58,7 @@ draw_horizontal_line:
     ; prepare vector registers for looping
     unpcklpd xmm0, xmm1
     unpcklpd xmm2, xmm3
-    unpcklpd xmm4, xmm5 ; punpcklqdq for integers
+    unpcklpd xmm4, xmm5
     unpcklpd xmm6, xmm7
     movapd xmm1, xmm2
     movapd xmm2, xmm4
@@ -78,7 +78,7 @@ draw_horizontal_line:
     ;  [xmm5] left_b - right_b, left_g - right_g
     movsd xmm6, xmm0
     cmpeqpd xmm6, xmm2
-    pmovsxdq xmm6, xmm6
+    punpcklqdq xmm6, xmm6
     pcmpeqd xmm7, xmm7
     pxor xmm7, xmm6
     ;  [xmm6] left_x == right_x, left_x == right_x
