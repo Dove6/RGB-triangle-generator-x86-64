@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <cpuid.h>
 
 //maximal path length for compatibility with MS Windows
 //see https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#maximum-path-length-limitation
@@ -343,8 +344,26 @@ int main(int argc, char **argv)
     if (sizeof(BITMAPINFOHEADER) != 40 || sizeof(VERTEXDATA) > 12) {
         fprintf(stderr, "sizeof(struct BITMAPINFOHEADER) = %u (should be 40)\n", sizeof(BITMAPINFOHEADER));
         fprintf(stderr, "sizeof(struct VERTEXDATA) = %u (should be 12 at most)\n", sizeof(VERTEXDATA));
-        fputs("Please use different compiler options in order to meet these criteria!", stderr);
+        fputs("Please use different compiler options in order to meet these criteria!\n", stderr);
         exit(EXIT_FAILURE);
+    }
+
+    //check if vector assembly instructions are supported using GCC intrinsics
+    { //source: https://stackoverflow.com/a/7495023/7447673
+        bool SSE2_supported = false;
+        int info[4];
+        __cpuid_count(0, 0, info[0], info[1], info[2], info[3]);
+        int nIds = info[0];
+        if (nIds >= 0x00000001){
+            __cpuid_count(0x00000001, 0, info[0], info[1], info[2], info[3]);
+            if ((info[3] & ((int)1 << 26)) != 0) {
+                SSE2_supported = true;
+            }
+        }
+        if (!SSE2_supported) {
+            fputs("SSE2 instruction set not supported. Please use different CPU!\n", stderr);
+            exit(EXIT_FAILURE);
+        }
     }
 
     //settings
@@ -390,7 +409,7 @@ int main(int argc, char **argv)
                 }
             }
             if (failure) {
-                fputs("Usage: rgb_triangle [--interactive] [output_filename [bitmap_width bitmap_height]]", stderr);
+                fputs("Usage: rgb_triangle [--interactive] [output_filename [bitmap_width bitmap_height]]\n", stderr);
                 exit(EXIT_FAILURE);
             }
         }
