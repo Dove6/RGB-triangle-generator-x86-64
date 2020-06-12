@@ -174,6 +174,7 @@ void sort_triangle_vertices(VERTEXDATA (*vertex_data)[3])
 
     \param image_data Pointer to the bitmap data.
     \param info_header Pointer to the BITMAPINFOHEADER describing the bitmap.
+    \param line_y Vertical position of both the left and right side fo the line.
     \param left_x Horizontal position of the left side of the line.
     \param left_r Proportion of red in the color of the left side of the line.
     \param left_g Proportion of green in the color of the left side of the line.
@@ -188,7 +189,7 @@ void sort_triangle_vertices(VERTEXDATA (*vertex_data)[3])
 
     \return Zero on success, -1 on error.
  */
-extern LONG draw_horizontal_line(BYTE *image_data, BITMAPINFOHEADER *info_header,
+extern LONG draw_horizontal_line(BYTE *image_data, BITMAPINFOHEADER *info_header, DWORD line_y,
     double left_x, double left_r, double left_g, double left_b,
     double right_x, double right_r, double right_g, double right_b);
 
@@ -262,7 +263,7 @@ LONG draw_triangle(BYTE *image_data, BITMAPINFOHEADER *info_header, VERTEXDATA (
         if (left.posX > right.posX) {
             swap_vertices(&left, &right);
         }
-        draw_horizontal_line(image_data, info_header,
+        draw_horizontal_line(image_data, info_header, (DWORD)i,
             (double)left.posX, (double)left.colR, (double)left.colG, (double)left.colB,
             (double)right.posX, (double)right.colR, (double)right.colG, (double)right.colB);
         /*struct COLORSTEP {
