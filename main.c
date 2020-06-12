@@ -359,29 +359,45 @@ int main(int argc, char **argv)
     BYTE *image_data;
 
     //parsing command-line parameters
-    switch (argc) {
-        case 1: {
-            break;
-        }
-        case 4: {
-            image_width = atoi(argv[2]);
-            image_height = atoi(argv[3]);
-        }
-        case 2: {
-            output_filename[0] = 0;
-            strncat(output_filename, argv[1], MAX_PATH - 1);
-            break;
-        }
-        default: {
-            fputs("Usage: rgb_triangle [output_filename [bitmap_width bitmap_height]]", stderr);
-            exit(EXIT_FAILURE);
+    bool interactive_mode = false;
+    {
+        bool read_interactive = false,
+            read_filename = false,
+            read_width = false,
+            read_height = false;
+        for (int i = 1; i < argc; i++) {
+            bool failure = false;
+            if (strcmp(argv[i], "--interactive") == 0) {
+                if (read_width && !read_height || read_interactive) {
+                    failure = true;
+                } else {
+                    interactive_mode = true;
+                    read_interactive = true;
+                }
+            } else {
+                if (!read_filename) {
+                    output_filename[0] = 0;
+                    strncat(output_filename, argv[i], MAX_PATH - 1);
+                    read_filename = true;
+                } else if (!read_width) {
+                    image_width = atoi(argv[i]);
+                    read_width = true;
+                } else if (!read_height) {
+                    image_height = atoi(argv[i]);
+                    read_height = true;
+                } else {
+                    failure = true;
+                }
+            }
+            if (failure) {
+                fputs("Usage: rgb_triangle [--interactive] [output_filename [bitmap_width bitmap_height]]", stderr);
+                exit(EXIT_FAILURE);
+            }
         }
     }
     puts("Settings:");
     printf("  default output filename: %.*s\n", MAX_PATH, output_filename);
     printf("  bitmap size: %dx%d\n\n", image_width, image_height);
-
-    print_help();
 
     //setting the data-related variables
     set_info_header(&info_header, image_width, image_height);
@@ -393,83 +409,53 @@ int main(int argc, char **argv)
     //set background
     clear_bitmap(image_data, &info_header, 0xff, 0xff, 0xff);
 
-    char buffer[BUF_SIZE];
-    //main loop
-    while (true) {
-        putchar('>');
-        fgets(buffer, BUF_SIZE, stdin);
-        buffer[BUF_SIZE - 1] = 0;
-        DWORD input_length = strlen(buffer);
+    if (interactive_mode) {
+        //INTERACTIVE MODE
+        print_help();
+        char buffer[BUF_SIZE];
+        //main loop
+        while (true) {
+            putchar('>');
+            fgets(buffer, BUF_SIZE, stdin);
+            buffer[BUF_SIZE - 1] = 0;
+            DWORD input_length = strlen(buffer);
 
-        char comparison_buffer[6] = {0, 0, 0, 0, 0, 0};
-        if (input_length < 4) {
-            puts("Incorrect command!");
-            continue;
-        }
-        memcpy(comparison_buffer, buffer, 4);
-        if (input_length > 4) {
-            comparison_buffer[4] = buffer[4];
-        }
-        for (int i = 0; i < 5; i++) {
-            if (isspace(comparison_buffer[i])) {
-                comparison_buffer[i] = 0;
-                break;
+            char comparison_buffer[6] = {0, 0, 0, 0, 0, 0};
+            if (input_length < 4) {
+                puts("Incorrect command!");
+                continue;
             }
-        }
-        if (strcmp(comparison_buffer, "help") == 0) {
-            print_help();
-        } else if (strcmp(comparison_buffer, "draw") == 0) {
-            bool status_ok = false;
-            VERTEXDATA vertex_data[3];
-            LONG colors[9];
-            LONG values_read = sscanf(buffer, "draw %d %d #%2hhx%2hhx%2hhx %d %d #%2hhx%2hhx%2hhx %d %d #%2hhx%2hhx%2hhx",
-                &vertex_data[0].posX, &vertex_data[0].posY, &vertex_data[0].colR, &vertex_data[0].colG,
-                &vertex_data[0].colB, &vertex_data[1].posX, &vertex_data[1].posY, &vertex_data[1].colR,
-                &vertex_data[1].colG, &vertex_data[1].colB, &vertex_data[2].posX, &vertex_data[2].posY,
-                &vertex_data[2].colR, &vertex_data[2].colG, &vertex_data[2].colB);
-            if (values_read == 15) {
-                status_ok = true;
-            } else {
-                values_read = sscanf(buffer, "draw %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
-                    &vertex_data[0].posX, &vertex_data[0].posY, &colors[0], &colors[1], &colors[2],
-                    &vertex_data[1].posX, &vertex_data[1].posY, &colors[3], &colors[4], &colors[5],
-                    &vertex_data[2].posX, &vertex_data[2].posY, &colors[6], &colors[7], &colors[8]);
+            memcpy(comparison_buffer, buffer, 4);
+            if (input_length > 4) {
+                comparison_buffer[4] = buffer[4];
+            }
+            for (int i = 0; i < 5; i++) {
+                if (isspace(comparison_buffer[i])) {
+                    comparison_buffer[i] = 0;
+                    break;
+                }
+            }
+            if (strcmp(comparison_buffer, "help") == 0) {
+                print_help();
+            } else if (strcmp(comparison_buffer, "draw") == 0) {
+                bool status_ok = false;
+                VERTEXDATA vertex_data[3];
+                LONG colors[9];
+                LONG values_read = sscanf(buffer, "draw %d %d #%2hhx%2hhx%2hhx %d %d #%2hhx%2hhx%2hhx %d %d #%2hhx%2hhx%2hhx",
+                    &vertex_data[0].posX, &vertex_data[0].posY, &vertex_data[0].colR, &vertex_data[0].colG,
+                    &vertex_data[0].colB, &vertex_data[1].posX, &vertex_data[1].posY, &vertex_data[1].colR,
+                    &vertex_data[1].colG, &vertex_data[1].colB, &vertex_data[2].posX, &vertex_data[2].posY,
+                    &vertex_data[2].colR, &vertex_data[2].colG, &vertex_data[2].colB);
                 if (values_read == 15) {
                     status_ok = true;
-                    for (DWORD i = 0; i < 9; i++) {
-                        if (colors[i] < 0 || colors[i] > 255) {
-                            status_ok = false;
-                            break;
-                        }
-                    }
-                }
-                if (status_ok) {
-                    set_vertex(&vertex_data[0], vertex_data[0].posX, vertex_data[0].posY, colors[0], colors[1], colors[2]);
-                    set_vertex(&vertex_data[1], vertex_data[1].posX, vertex_data[1].posY, colors[3], colors[4], colors[5]);
-                    set_vertex(&vertex_data[2], vertex_data[2].posX, vertex_data[2].posY, colors[6], colors[7], colors[8]);
-                }
-            }
-            if (status_ok) {
-                if (draw_triangle(image_data, &info_header, &vertex_data) != 0) {
-                    puts("Error drawing triangle!");
-                }
-            } else {
-                puts("Incorrect vertex format!");
-            }
-        } else if (strcmp(comparison_buffer, "clear") == 0) {
-            //check for non-whitespace characters after the command
-            if (strspn(buffer + 5, " \t\n\v\f\r") + 5 != strlen(buffer)) {
-                BYTE red = 255, green = 255, blue = 255;
-                LONG values_read = sscanf(buffer, "clear #%2hhx%2hhx%2hhx", &red, &green, &blue);
-                if (values_read == 3) {
-                    clear_bitmap(image_data, &info_header, red, green, blue);
                 } else {
-                    bool status_ok = false;
-                    LONG colors[3];
-                    values_read = sscanf(buffer, "clear %d %d %d", &colors[0], &colors[1], &colors[2]);
-                    if (values_read == 3) {
+                    values_read = sscanf(buffer, "draw %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+                        &vertex_data[0].posX, &vertex_data[0].posY, &colors[0], &colors[1], &colors[2],
+                        &vertex_data[1].posX, &vertex_data[1].posY, &colors[3], &colors[4], &colors[5],
+                        &vertex_data[2].posX, &vertex_data[2].posY, &colors[6], &colors[7], &colors[8]);
+                    if (values_read == 15) {
                         status_ok = true;
-                        for (DWORD i = 0; i < 3; i++) {
+                        for (DWORD i = 0; i < 9; i++) {
                             if (colors[i] < 0 || colors[i] > 255) {
                                 status_ok = false;
                                 break;
@@ -477,48 +463,203 @@ int main(int argc, char **argv)
                         }
                     }
                     if (status_ok) {
-                        clear_bitmap(image_data, &info_header, colors[0], colors[1], colors[2]);
-                    } else {
-                        puts("Incorrect color format!");
+                        set_vertex(&vertex_data[0], vertex_data[0].posX, vertex_data[0].posY, colors[0], colors[1], colors[2]);
+                        set_vertex(&vertex_data[1], vertex_data[1].posX, vertex_data[1].posY, colors[3], colors[4], colors[5]);
+                        set_vertex(&vertex_data[2], vertex_data[2].posX, vertex_data[2].posY, colors[6], colors[7], colors[8]);
                     }
                 }
-            } else {
-                //no color argument: paint white
-                clear_bitmap(image_data, &info_header, 0xff, 0xff, 0xff);
-            }
-        } else if (strcmp(comparison_buffer, "save") == 0) {
-            char *filename = output_filename;
-            char filename_buffer[MAX_PATH];
-            if (sscanf(buffer, "save %259[^\n]", filename_buffer) == 1) {
-                filename = filename_buffer;
-            }
-            if (save_bitmap(&file_header, &info_header, image_data, filename) == 0) {
-                puts("Bitmap saved successfully!");
-            } else {
-                puts("Error saving bitmap!");
-            }
-        } else if (strcmp(comparison_buffer, "kill") == 0) {
-            break;
-        } else if (strcmp(comparison_buffer, "quit") == 0) {
-            if (save_bitmap(&file_header, &info_header, image_data, output_filename) == 0) {
-                puts("Bitmap saved successfully!");
+                if (status_ok) {
+                    if (draw_triangle(image_data, &info_header, &vertex_data) != 0) {
+                        puts("Error drawing triangle!");
+                    }
+                } else {
+                    puts("Incorrect vertex format!");
+                }
+            } else if (strcmp(comparison_buffer, "clear") == 0) {
+                //check for non-whitespace characters after the command
+                if (strspn(buffer + 5, " \t\n\v\f\r") + 5 != strlen(buffer)) {
+                    BYTE red = 255, green = 255, blue = 255;
+                    LONG values_read = sscanf(buffer, "clear #%2hhx%2hhx%2hhx", &red, &green, &blue);
+                    if (values_read == 3) {
+                        clear_bitmap(image_data, &info_header, red, green, blue);
+                    } else {
+                        bool status_ok = false;
+                        LONG colors[3];
+                        values_read = sscanf(buffer, "clear %d %d %d", &colors[0], &colors[1], &colors[2]);
+                        if (values_read == 3) {
+                            status_ok = true;
+                            for (DWORD i = 0; i < 3; i++) {
+                                if (colors[i] < 0 || colors[i] > 255) {
+                                    status_ok = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (status_ok) {
+                            clear_bitmap(image_data, &info_header, colors[0], colors[1], colors[2]);
+                        } else {
+                            puts("Incorrect color format!");
+                        }
+                    }
+                } else {
+                    //no color argument: paint white
+                    clear_bitmap(image_data, &info_header, 0xff, 0xff, 0xff);
+                }
+            } else if (strcmp(comparison_buffer, "save") == 0) {
+                char *filename = output_filename;
+                char filename_buffer[MAX_PATH];
+                if (sscanf(buffer, "save %259[^\n]", filename_buffer) == 1) {
+                    filename = filename_buffer;
+                }
+                if (save_bitmap(&file_header, &info_header, image_data, filename) == 0) {
+                    puts("Bitmap saved successfully!");
+                } else {
+                    puts("Error saving bitmap!");
+                }
+            } else if (strcmp(comparison_buffer, "kill") == 0) {
                 break;
+            } else if (strcmp(comparison_buffer, "quit") == 0) {
+                if (save_bitmap(&file_header, &info_header, image_data, output_filename) == 0) {
+                    puts("Bitmap saved successfully!");
+                    break;
+                } else {
+                    puts("Error saving bitmap!");
+                }
             } else {
-                puts("Error saving bitmap!");
+                puts("Incorrect command!");
             }
-        } else {
-            puts("Incorrect command!");
-        }
 
-        if (input_length > 0) {
-            input_length--;
-            //if the input was too long, skip until the next line
-            if (buffer[input_length] != '\n') {
-                LONG character = 0;
-                while (character != '\n' && character != EOF) {
-                    character = getchar();
+            if (input_length > 0) {
+                input_length--;
+                //if the input was too long, skip until the next line
+                if (buffer[input_length] != '\n') {
+                    LONG character = 0;
+                    while (character != '\n' && character != EOF) {
+                        character = getchar();
+                    }
                 }
             }
+        }
+    } else {
+        //NON-INTERACTIVE MODE
+        #define TRIANGLE_COUNT 26
+        VERTEXDATA vertices[TRIANGLE_COUNT][3] = {
+            {
+                {15, 5, 0x00, 0x00, 0x00},
+                {5, 10, 0x00, 0x00, 0x00},
+                {25, 15, 0x00, 0x00, 0x00}
+            }, {
+                {128, 10, 0xff, 0x00, 0x00},
+                {10, 240, 0x00, 0xff, 0x00},
+                {245, 235, 0x00, 0x00, 0xff}
+            }, {
+                {200, 10, 0x13, 0x57, 0x9b},
+                {200, 30, 0x57, 0x9b, 0x13},
+                {215, 30, 0x9b, 0x13, 0x57}
+            }, {
+                {200, 51, 0x13, 0x57, 0x9b},
+                {200, 31, 0x57, 0x9b, 0x13},
+                {215, 31, 0x9b, 0x13, 0x57}
+            }, {
+                {231, 10, 0x13, 0x57, 0x9b},
+                {231, 30, 0x57, 0x9b, 0x13},
+                {216, 30, 0x9b, 0x13, 0x57}
+            }, {
+                {231, 51, 0x13, 0x57, 0x9b},
+                {231, 31, 0x57, 0x9b, 0x13},
+                {216, 31, 0x9b, 0x13, 0x57}
+            }, {
+                {20, 50, 0xfc, 0xa8, 0x64},
+                {20, 70, 0xa8, 0x64, 0xfc},
+                {30, 60, 0x64, 0xfc, 0xa8}
+            }, {
+                {19, 50, 0xfc, 0xa8, 0x64},
+                {19, 70, 0xa8, 0x64, 0xfc},
+                {9, 60, 0x64, 0xfc, 0xa8}
+            }, {
+                {20, 49, 0xfc, 0xa8, 0x64},
+                {40, 49, 0xa8, 0x64, 0xfc},
+                {30, 59, 0x64, 0xfc, 0xa8}
+            }, {
+                {20, 48, 0xfc, 0xa8, 0x64},
+                {40, 48, 0xa8, 0x64, 0xfc},
+                {30, 38, 0x64, 0xfc, 0xa8}
+            }, {
+                {40, 70, 0xff, 0x00, 0x00},
+                {60, 70, 0x00, 0xff, 0x00},
+                {60, 50, 0x00, 0x00, 0xff}
+            }, {
+                {40, 71, 0xff, 0x00, 0x00},
+                {60, 71, 0x00, 0xff, 0x00},
+                {60, 91, 0x00, 0x00, 0xff}
+            }, {
+                {81, 70, 0xff, 0x00, 0x00},
+                {61, 70, 0x00, 0xff, 0x00},
+                {61, 50, 0x00, 0x00, 0xff}
+            }, {
+                {81, 71, 0xff, 0x00, 0x00},
+                {61, 71, 0x00, 0xff, 0x00},
+                {61, 91, 0x00, 0x00, 0xff}
+            }, {
+                {-6, -6, 0xff, 0xff, 0x00},
+                {-6, 15, 0x00, 0xff, 0xff},
+                {15, -6, 0xff, 0x00, 0xff}
+            }, {
+                {261, -6, 0xff, 0xff, 0x00},
+                {261, 15, 0x00, 0xff, 0xff},
+                {240, -6, 0xff, 0x00, 0xff}
+            }, {
+                {261, 261, 0xff, 0xff, 0x00},
+                {261, 240, 0x00, 0xff, 0xff},
+                {240, 261, 0xff, 0x00, 0xff}
+            }, {
+                {-6, 261, 0xff, 0xff, 0x00},
+                {-6, 240, 0x00, 0xff, 0xff},
+                {15, 261, 0xff, 0x00, 0xff}
+            }, {
+                {9, 128, 0xff, 0x00, 0xff},
+                {-6, 116, 0xff, 0xff, 0x00},
+                {-6, 140, 0x00, 0xff, 0xff}
+            }, {
+                {128, 9, 0xff, 0x00, 0xff},
+                {116, -6, 0xff, 0xff, 0x00},
+                {140, -6, 0x00, 0xff, 0xff}
+            }, {
+                {246, 128, 0xff, 0x00, 0xff},
+                {261, 116, 0xff, 0xff, 0x00},
+                {261, 140, 0x00, 0xff, 0xff}
+            }, {
+                {128, 246, 0xff, 0x00, 0xff},
+                {116, 261, 0xff, 0xff, 0x00},
+                {140, 261, 0x00, 0xff, 0xff}
+            }, {
+                {204, 100, 0x30, 0x41, 0x08},
+                {204, 100, 0x30, 0x41, 0x08},
+                {204, 100, 0x30, 0x41, 0x08}
+            }, {
+                {206, 100, 0x30, 0x41, 0x08},
+                {206, 100, 0x30, 0x41, 0x08},
+                {206, 100, 0x30, 0x41, 0x08}
+            }, {
+                {204, 102, 0x30, 0x41, 0x08},
+                {204, 102, 0x30, 0x41, 0x08},
+                {204, 102, 0x30, 0x41, 0x08}
+            }, {
+                {206, 102, 0x30, 0x41, 0x08},
+                {206, 102, 0x30, 0x41, 0x08},
+                {206, 102, 0x30, 0x41, 0x08}
+            }
+        };
+        for (int i = 0; i < TRIANGLE_COUNT; i++) {
+            if (draw_triangle(image_data, &info_header, &vertices[i]) != 0) {
+                puts("Error drawing triangle!");
+                break;
+            }
+        }
+        if (save_bitmap(&file_header, &info_header, image_data, output_filename) == 0) {
+            puts("Bitmap saved successfully!");
+        } else {
+            puts("Error saving bitmap!");
         }
     }
 
